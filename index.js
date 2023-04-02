@@ -15,6 +15,7 @@ const stop_loss = 0.002;
 const take_profit = 0.005;
 const level_diff = 50;
 
+let counter = 0;
 
 // функция для определения уровней поддержки и сопротивления
 const findLevels = async () => {
@@ -32,7 +33,9 @@ const findLevels = async () => {
 const checkBuyCondition = async () => {
     const ticker = await exchange.fetchTicker(symbol);
     const price = ticker.ask;
+    console.log(price)
     const {support_level} = await findLevels();
+    console.log(support_level)
     if (price <= support_level) {
         return true;
     }
@@ -61,13 +64,21 @@ const calculatePrice = (price, percent) => {
     return price * (1 + percent);
 }
 
+const delay = (time) =>{
+    return new Promise(resolve => setTimeout(resolve, time*60*1000));
+}
+
 // функция запуска бота
 const startBot = async () => {
     while (true) {
-
+        let i = await checkBuyCondition()
+        console.log(i)
         let price = 0;
         let sl_price = 0;
-        
+
+        let lastTime = new Date().getTime();
+        let delayFlag = true;
+
         if (await checkBuyCondition()) {
             const ticker = await exchange.fetchTicker(symbol);
             price = ticker.ask;
@@ -89,30 +100,35 @@ const startBot = async () => {
             console.log('Buy order created: ', buy_order);
             console.log('Sell order created: ', sell_order);
             
-        } else if (await checkSellCondition()) {
-            // const ticker = await exchange.fetchTicker(symbol);
-            // const price = ticker.bid;
-            console.clear();
-            console.log("Цена ниже уровня поддержки")
-            // const sell_order = await exchange.createMarketSellOrder(symbol, 0.001);
-            // console.log('Sell order created: ', sell_order);
         }
-        while(new Promise(resolve => setTimeout(resolve, 15*60*1000))){
+        while( delayFlag ){
             //console.clear()
             try{
                 const ticker_sl = await exchange.fetchTicker(symbol);
                 let price2 = ticker_sl.ask;
-                console.log(price2, sl_price)
+                
+                
+                //console.log(price2, sl_price)
                 if(price2 <= sl_price){
 
                     exchange.cancelAllOrders(symbol)
                     const sl_order = await exchange.createMarketSellOrder(symbol, 0.0005)
                     console.clear()
                     console.log('Stop loss order complete: ', sl_order);
-
+                    
                 }
+
             } catch(e) {
                 console.log(e);
+            }
+            const currentTime = new Date().getTime();
+            const elapsedTime = currentTime - lastTime;
+
+            
+
+            console.log(elapsedTime)
+            if(elapsedTime > 15 * 60 * 1000){
+                delayFlag = false;
             }
                 
         }
