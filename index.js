@@ -14,6 +14,9 @@ const symbol = 'BTCUSDT';
 const stop_loss = 0.002;
 const take_profit = 0.005;
 const level_diff = 50;
+let amount = 0.0004;
+
+let logger = []
 
 let counter = 0;
 
@@ -33,9 +36,13 @@ const findLevels = async () => {
 const checkBuyCondition = async () => {
     const ticker = await exchange.fetchTicker(symbol);
     const price = ticker.ask;
-    console.log(price)
+    //console.log(price)
+    
+    logger[0] = `Цена ${price}`;
     const {support_level} = await findLevels();
-    console.log(support_level)
+    logger[1] = `Уровень поддержки ${support_level}`;
+
+    //console.log(support_level)
     if (price <= support_level) {
         return true;
     }
@@ -47,11 +54,11 @@ const checkSellCondition = async () => {
     const ticker = await exchange.fetchTicker(symbol);
     const price = ticker.bid;
 
-    console.log(price);
+    //console.log(price);
     
     const {resistance_level} = await findLevels();
-
-    console.log(resistance_level)
+    
+    //console.log(resistance_level)
 
     if (price >= resistance_level) {
         return true;
@@ -68,13 +75,22 @@ const delay = (time) =>{
     return new Promise(resolve => setTimeout(resolve, time*60*1000));
 }
 
+const  balanceUSDT = async () =>{
+    const balance = await exchange.fetchBalance();
+    const usdtBalance = balance.total.USDT; // получить общий баланс USDT
+    console.log(usdtBalance);
+    
+    return usdtBalance;
+}
+
 // функция запуска бота
 const startBot = async () => {
     while (true) {
         let i = await checkBuyCondition()
-        console.log(i)
+        //console.log(i)
         let price = 0;
         let sl_price = 0;
+        
 
         let lastTime = new Date().getTime();
         let delayFlag = true;
@@ -83,22 +99,28 @@ const startBot = async () => {
             const ticker = await exchange.fetchTicker(symbol);
             price = ticker.ask;
             //price = price + price * 0.0002
-            console.log(price);
-
+            //console.log(price);
+            logger[0] = `Цена ${price}`;
+            
             sl_price = calculatePrice(price, -stop_loss);
             //sl_price = sl_price + sl_price * 0.02
-            console.log(sl_price);
-            
+            //console.log(sl_price);
+            logger[2] = `Стоп-лосс цена ${sl_price}`;
             const tp_price = calculatePrice(price, take_profit);
-            console.log(tp_price)
+            //console.log(tp_price)
+            logger[3] = `Тейк-проффит цена ${tp_price}`;
 
 
-            const buy_order = await exchange.createLimitBuyOrder(symbol, 0.0004, price);
-            const sell_order = await exchange.createLimitSellOrder(symbol, 0.0004, tp_price, {'type': 'TAKE_PROFIT_LIMIT'});
+            const buy_order = await exchange.createLimitBuyOrder(symbol, amount, price);
+            const sell_order = await exchange.createLimitSellOrder(symbol, amount, tp_price, {'type': 'TAKE_PROFIT_LIMIT'});
             
 
-            console.log('Buy order created: ', buy_order);
-            console.log('Sell order created: ', sell_order);
+            //console.log('Buy order created: ', buy_order);
+            logger[4] = buy_order;
+            //console.log('Sell order created: ', sell_order);
+            logger[5] = sell_order;
+
+            
             
         }
         while( delayFlag ){
@@ -112,9 +134,10 @@ const startBot = async () => {
                 if(price2 <= sl_price){
 
                     exchange.cancelAllOrders(symbol)
-                    const sl_order = await exchange.createMarketSellOrder(symbol, 0.0005)
+                    const sl_order = await exchange.createMarketSellOrder(symbol, amount)
                     console.clear()
                     console.log('Stop loss order complete: ', sl_order);
+                    delayFlag = false;
                     
                 }
 
@@ -125,8 +148,12 @@ const startBot = async () => {
             const elapsedTime = currentTime - lastTime;
 
             
-
-            console.log(elapsedTime)
+            logger[6] = `Время проверки: ${elapsedTime} из ${15 * 60 * 1000}`
+            console.clear();
+            for (j in logger) {
+                console.log(logger[j]) 
+            }
+            //console.log(elapsedTime)
             if(elapsedTime > 15 * 60 * 1000){
                 delayFlag = false;
             }
